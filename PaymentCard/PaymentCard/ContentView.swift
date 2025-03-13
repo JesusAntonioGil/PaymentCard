@@ -36,44 +36,51 @@ struct ContentView: View {
     // View Properties
     @State private var card: Card = .init()
     @FocusState private var activeField: ActiveField?
+    @State private var animateField: ActiveField?
+    @Namespace private var animation
     
     
     var body: some View {
         VStack(spacing: 15) {
             ZStack {
-                /*MeshGradient(
-                    width: 4,
-                    height: 4,
-                    points: [
-                        .init(0, 0), .init(0.33, 0), .init(0.66, 0), .init(1, 0),
-                        .init(0, 0.33), .init(0.33, 0.33), .init(0.66, 0.33), .init(1, 0.33),
-                        .init(0, 0.66), .init(0.33, 0.66), .init(0.66, 0.66), .init(1, 0.66),
-                        .init(0, 1), .init(0.33, 1), .init(0.66, 1), .init(1, 1)
-                    ],
-                    colors: [
-                        .indigo, .blue, .purple, .pink,
-                        .blue, .purple, .pink, .red,
-                        .purple, .pink, .red, .orange,
-                        .pink, .red, .orange, .yellow
-                    ]
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 25))
-                .overlay {
-                    CardFrontView()
-                }*/
-                
-                RoundedRectangle(cornerRadius: 25)
-                    .fill(.red.mix(with: .blue, by: 0.2))
+                if animateField != .cvv {
+                    MeshGradient(
+                        width: 4,
+                        height: 4,
+                        points: [
+                            .init(0, 0), .init(0.33, 0), .init(0.66, 0), .init(1, 0),
+                            .init(0, 0.33), .init(0.33, 0.33), .init(0.66, 0.33), .init(1, 0.33),
+                            .init(0, 0.66), .init(0.33, 0.66), .init(0.66, 0.66), .init(1, 0.66),
+                            .init(0, 1), .init(0.33, 1), .init(0.66, 1), .init(1, 1)
+                        ],
+                        colors: [
+                            .indigo, .blue, .purple, .pink,
+                            .blue, .purple, .pink, .red,
+                            .purple, .pink, .red, .orange,
+                            .pink, .red, .orange, .yellow
+                        ]
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 25))
                     .overlay {
-                        CardBackView()
+                        CardFrontView()
                     }
-                    .frame(height: 200)
+                    .transition(.flip)
+                } else {
+                    RoundedRectangle(cornerRadius: 25)
+                        .fill(.red.mix(with: .blue, by: 0.2))
+                        .overlay {
+                            CardBackView()
+                        }
+                        .frame(height: 200)
+                        .transition(.reverseFlip)
+                }
             }
             .frame(height: 200)
             
             CustomtextField(title: "Card Number", hint: "", value: $card.number) {
                 card.number = String(card.number.group(" ", count: 4).prefix(19))
             }
+            .keyboardType(.numberPad)
             .focused($activeField, equals: .number)
             
             CustomtextField(title: "Card Name", hint: "", value: $card.name) {
@@ -84,11 +91,17 @@ struct ContentView: View {
             HStack(spacing: 10) {
                 CustomtextField(title: "Month", hint: "", value: $card.month) {
                     card.month = String(card.month.prefix(2))
+                    
+                    if card.month.count == 2 {
+                        activeField = .year
+                    }
                 }
                 .focused($activeField, equals: .month)
                 
                 CustomtextField(title: "Year", hint: "", value: $card.year) {
                     card.year = String(card.year.prefix(2))
+                    
+                    
                 }
                 .focused($activeField, equals: .year)
                 
@@ -102,6 +115,19 @@ struct ContentView: View {
             Spacer(minLength: 0)
         }
         .padding()
+        .onChange(of: activeField) { oldValue, newValue in
+            withAnimation(.snappy) {
+                animateField = newValue
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .keyboard) {
+                Button("DONE") {
+                    activeField = nil
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
     }
     
     
@@ -117,6 +143,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
+            .background(AnimateRing(animateField == .number))
             .frame(maxWidth: .infinity)
             
             HStack(spacing: 10) {
@@ -128,6 +155,7 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)
+                .background(AnimateRing(animateField == .name))
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("EXPIRES")
@@ -142,6 +170,7 @@ struct ContentView: View {
                     }
                 }
                 .padding(10)
+                .background(AnimateRing(animateField == .month || animateField == .year))
             }
         }
         .foregroundStyle(.white)
@@ -182,6 +211,15 @@ struct ContentView: View {
         .padding(15)
         .contentTransition(.numericText())
         .animation(.snappy, value: card)
+    }
+    
+    @ViewBuilder
+    private func AnimateRing(_ status: Bool) -> some View {
+        if status {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(.white, lineWidth: 1.5)
+                .matchedGeometryEffect(id: "RING", in: animation)
+        }
     }
 }
 
@@ -252,3 +290,6 @@ extension String {
         return tempText
     }
 }
+
+
+
